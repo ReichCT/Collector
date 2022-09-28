@@ -1,6 +1,6 @@
-# flutter_app_test2
+# Bluetooth Data Collector
 
-A new Flutter application.
+This is an APP for mobile phones constructed by *flutter* and *Dart*, aiming to remotly collect data from sensors through Bluetooth.  
 
 ## Getting Started
 
