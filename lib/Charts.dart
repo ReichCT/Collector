@@ -23,12 +23,6 @@ class Data {
   Data(this.time, this.data);
 }
 
-class _Message {
-  String time_stamp;
-  String data;
-  _Message(this.time_stamp, this.data);
-}
-
 class DataCollectionPage extends StatefulWidget {
   final BluetoothDevice server;
 
@@ -38,9 +32,8 @@ class DataCollectionPage extends StatefulWidget {
 }
 
 class _DataCollectionPage extends State<DataCollectionPage> {
-  int Flag = 0; //用于标记是否为第一个数据点
+  int DataReceivedFlag = 0; //用于标记是否为第一个数据点
   double t_start = 0; //用于记录第一个数据的时间，并以此为时间基点
-  _Message message = _Message('...', '...');
   var _dataStream = [Data(0, 0)];
 
   BluetoothConnection? connection;
@@ -84,9 +77,9 @@ class _DataCollectionPage extends State<DataCollectionPage> {
       print(error);
     });
 
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeRight, //全屏时旋转方向，左边
-    ]);
+    // SystemChrome.setPreferredOrientations([
+    //   DeviceOrientation.landscapeRight, //全屏时旋转方向，左边
+    // ]);
   }
 
   @override
@@ -98,9 +91,9 @@ class _DataCollectionPage extends State<DataCollectionPage> {
       connection = null;
     }
     // When get out of this page, turn back to vertical
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    // SystemChrome.setPreferredOrientations([
+    //   DeviceOrientation.portraitUp,
+    // ]);
     // save data to csv
     // createCSVFile('AutoSaved');
     super.dispose();
@@ -117,7 +110,7 @@ class _DataCollectionPage extends State<DataCollectionPage> {
             Divider(),
 
             ListTile(
-              leading: const Icon(Icons.brightness_7),
+              leading: const Icon(Icons.mode_edit),
               title: TextField(
                 style: const TextStyle(color: Colors.black87),
                 controller: textEditingController,
@@ -143,36 +136,56 @@ class _DataCollectionPage extends State<DataCollectionPage> {
             // A container to place LineChart
             Container(
               height: 150,
-              child: LineChart(),
+              child: DataReceivedFlag == 1
+                  ? LineChart(_dataStream)
+                  : Center(
+                      child: Text(
+                        "Not connected yet",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 25,
+                            fontFamily: 'Times New Roman'),
+                      ),
+                    ),
             ),
+            // Container(
+            //   height: 150,
+            //   child: DataReceivedFlag == 1
+            //       ? LineChart(_dataStream)
+            //       : Center(
+            //           child: Text(
+            //             "Not connected yet",
+            //             style: TextStyle(
+            //                 fontWeight: FontWeight.bold,
+            //                 fontSize: 25,
+            //                 fontFamily: 'Times New Roman'),
+            //           ),
+            //         ),
+            // ),
 
-            // To be replaced
-            // ElevatedButton(
-            //     onPressed: () {
-            //       setState(() {
-            //         Points += 1;
-            //         print(Points);
-            //         // _simpleLine();
-            //       });
-            //     },
-            //     child: Text('add point')),
-            const Center(
-              child: Text(
-                "©Ren's Group,",
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    fontFamily: 'Times New Roman'),
-              ),
-            ),
-            const Center(
-              child: Text(
-                "School of Integrated Circuits, Tsinghua University",
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    fontFamily: 'Times New Roman'),
-              ),
+            
+            Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Center(
+                  child: Text(
+                    "©Ren's Group,",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        fontFamily: 'Times New Roman'),
+                  ),
+                ),
+                const Center(
+                  child: Text(
+                    "School of Integrated Circuits, Tsinghua University",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        fontFamily: 'Times New Roman'),
+                  ),
+                ),
+              ],
             ),
             // Center(child: Text("",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 15),),),
           ],
@@ -189,12 +202,12 @@ class _DataCollectionPage extends State<DataCollectionPage> {
               onPressed: () => Navigator.pop(context, false),
             ),
             TextButton(
-              child: const Text('Yes'),
-              onPressed: (){
-                Navigator.pop(context, true);
-                createCSVFile('AutoSaved');
-              }
-            ),
+                child: const Text('Yes'),
+                onPressed: () {
+                  Navigator.pop(context, true);
+                  createCSVFile('AutoSaved');
+                  // dispose();
+                }),
           ],
         ),
       ),
@@ -202,30 +215,14 @@ class _DataCollectionPage extends State<DataCollectionPage> {
   }
 
   // Draw the LineChart
-  Widget LineChart() {
-    var random = Random();
-    try {
-      // print(message.time_stamp);
-      if (Flag == 0) {
-        _dataStream[0].data = double.parse(message.data);
-        t_start = double.parse(message.time_stamp) / 1000.0;
-        Flag = 1;
-      } else {
-        _dataStream.add(Data( double.parse(message.time_stamp) / 1000.0 - t_start,
-            double.parse(message.data)));
-      }
-    } catch (e) {
-      // 非具体类型
-      print('Something Wrong, skipped: $e');
-    }
-
+  Widget LineChart(DATALIST) {
     var seriesList = [
       charts.Series<Data, double>(
         id: 'Sales',
         colorFn: (_, __) => charts.MaterialPalette.blue.shadeDefault,
         domainFn: (Data sales, _) => sales.time,
         measureFn: (Data sales, _) => sales.data,
-        data: _dataStream,
+        data: DATALIST,
       )
     ];
 
@@ -243,7 +240,8 @@ class _DataCollectionPage extends State<DataCollectionPage> {
       ),
       behaviors: [
         charts.SlidingViewport(),
-        charts.PanAndZoomBehavior(),
+        // charts.SelectionModel(),
+        // charts.PanAndZoomBehavior(),
         charts.ChartTitle('Time(s)',
             behaviorPosition: charts.BehaviorPosition.bottom,
             titleOutsideJustification:
@@ -258,8 +256,15 @@ class _DataCollectionPage extends State<DataCollectionPage> {
         //         charts.OutsideJustification.middleDrawArea),
       ],
       //配置初始状态展示个数
-      domainAxis:
-          const charts.NumericAxisSpec(viewport: charts.NumericExtents(0, 50)),
+      domainAxis: charts.NumericAxisSpec(
+        viewport: charts.NumericExtents(
+            _dataStream[_dataStream.length - 1].time - 10 > 0
+                ? _dataStream[_dataStream.length - 1].time - 10
+                : 0,
+            _dataStream[_dataStream.length - 1].time > 10
+                ? _dataStream[_dataStream.length - 1].time
+                : 10),
+      ),
     );
   }
 
@@ -281,7 +286,20 @@ class _DataCollectionPage extends State<DataCollectionPage> {
       // print(dataString.length);
       setState(
         () {
-          message = _Message(TIME, DATA);
+          try {
+            // print(message.time_stamp);
+            if (DataReceivedFlag == 0) {
+              _dataStream[0].data = double.parse(DATA);
+              t_start = double.parse(TIME) / 1000.0;
+              DataReceivedFlag = 1;
+            } else {
+              _dataStream.add(Data(
+                  double.parse(TIME) / 1000.0 - t_start, double.parse(DATA)));
+            }
+          } catch (e) {
+            // 非具体类型
+            print('Something Wrong, skipped: $e');
+          }
         },
       );
     }
@@ -325,7 +343,7 @@ class _DataCollectionPage extends State<DataCollectionPage> {
     setState(() {});
   }
 
-   _FileSavedDialog() async {
+  _FileSavedDialog() async {
     var result = await showDialog(
         context: context,
         builder: (context) {
@@ -345,6 +363,4 @@ class _DataCollectionPage extends State<DataCollectionPage> {
 
     print(result);
   }
-
-
 }

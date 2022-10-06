@@ -39,9 +39,9 @@ class _MainPage extends State<MainPage> {
   void initState() {
     super.initState();
     // 确保主屏幕不会倒转
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    // SystemChrome.setPreferredOrientations([
+    //   DeviceOrientation.portraitUp,
+    // ]);
     // Get current state
     FlutterBluetoothSerial.instance.state.then((state) {
       setState(() {
@@ -214,7 +214,7 @@ class _MainPage extends State<MainPage> {
 
             const ListTile(
               title: const Text(
-                'Connections',
+                'Divices dicovery and Connections',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -289,12 +289,12 @@ class _MainPage extends State<MainPage> {
 
             // ListTile(
             //   title: ElevatedButton(
-            //       child: const Text('Show collected data in Table'),
+            //       child: const Text('Connect to collect data through WiFi'),
             //       onPressed: () {
             //         Navigator.of(context).push(
             //           MaterialPageRoute(
             //             builder: (context) {
-            //               return TableLayout();
+            //               return WiFi_Communicator();
             //             },
             //           ),
             //         );

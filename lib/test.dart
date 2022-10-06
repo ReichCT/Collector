@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:get_ip_address/get_ip_address.dart';
 
 class TableLayout extends StatefulWidget {
   @override
@@ -174,5 +175,45 @@ class _TableLayoutState extends State<TableLayout> {
 // 删除文件夹及其下所有文件
   _deleteDirectory(Directory directory) {
     directory.delete(recursive: true);
+  }
+}
+
+class WiFi_Communicator extends StatefulWidget {
+  const WiFi_Communicator({super.key});
+
+  @override
+  State<WiFi_Communicator> createState() => _WiFi_CommunicatorState();
+}
+
+class _WiFi_CommunicatorState extends State<WiFi_Communicator> {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      child: ElevatedButton(
+        child: Text("TCP"),
+        onPressed: () {
+          print(1);
+          startServer();
+        },
+      ),
+    );
+  }
+
+  void startServer() async {
+    getIP();
+    ServerSocket serverSocket =
+        await ServerSocket.bind(InternetAddress.anyIPv4, 8888, shared: true);
+    serverSocket.listen(handleClient);
+    print(serverSocket.address);
+  }
+  void handleClient(Socket client) {
+    print('some client connected');
+  }
+  void getIP() async {
+    /// Initialize Ip Address
+    var ipAddress = IpAddress();
+    /// Get the IpAddress based on requestType.
+    dynamic data = await ipAddress.getIpAddress();
+    print(data.toString());
   }
 }
