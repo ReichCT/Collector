@@ -1,5 +1,5 @@
 import 'dart:math';
-import 'dart:ffi';
+// import 'dart:ffi';
 import 'package:flutter/material.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
@@ -32,16 +32,23 @@ class DataCollectionPage extends StatefulWidget {
 }
 
 class _DataCollectionPage extends State<DataCollectionPage> {
-  int DataReceivedFlag = 0; //用于标记是否为第一个数据点
+  bool DataReceivedFlag = false; //用于标记是否收到了第一个数据
+  bool ShowGraph = false;
+
   double t_start = 0; //用于记录第一个数据的时间，并以此为时间基点
-  var _dataStream = [Data(0, 0)];
+  double _currentData = 0;
+  double _currentTime = 0;
+  List<Data> _dataStream = [];
 
   BluetoothConnection? connection;
   bool isConnecting = true;
   bool get isConnected => (connection?.isConnected ?? false);
   bool isDisconnecting = false;
 
-  TextEditingController textEditingController = TextEditingController(text: "");
+  double range = 1;
+  double position = 1;
+
+  TextEditingController textEditingController = TextEditingController(text: "untitled");
 
   // Initialization, make sure this page will turn horizontal.
   @override
@@ -90,12 +97,7 @@ class _DataCollectionPage extends State<DataCollectionPage> {
       connection?.dispose();
       connection = null;
     }
-    // When get out of this page, turn back to vertical
-    // SystemChrome.setPreferredOrientations([
-    //   DeviceOrientation.portraitUp,
-    // ]);
-    // save data to csv
-    // createCSVFile('AutoSaved');
+
     super.dispose();
   }
 
@@ -104,98 +106,346 @@ class _DataCollectionPage extends State<DataCollectionPage> {
   Widget build(BuildContext context) {
     return WillPopScope(
       child: Scaffold(
-        appBar: AppBar(title: Text("Collected Data")),
-        body: ListView(
+        resizeToAvoidBottomInset: false,
+        appBar: AppBar(title: const Text("Collected Data")),
+        body: Stack(
           children: <Widget>[
-            Divider(),
-
-            ListTile(
-              leading: const Icon(Icons.mode_edit),
-              title: TextField(
-                style: const TextStyle(color: Colors.black87),
-                controller: textEditingController,
-                decoration: const InputDecoration(
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blue),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blue),
-                  ),
-                ),
-              ),
-              subtitle: const Text("Input saving filename here"),
-              trailing: ElevatedButton(
-                child: const Text('save'),
-                onPressed: () {
-                  createCSVFile(textEditingController.text);
-                  _FileSavedDialog();
-                },
-              ),
-            ),
-
-            // A container to place LineChart
-            Container(
-              height: 150,
-              child: DataReceivedFlag == 1
-                  ? LineChart(_dataStream)
-                  : Center(
-                      child: Text(
-                        "Not connected yet",
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 25,
-                            fontFamily: 'Times New Roman'),
+            Column(
+              children: <Widget>[
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.mode_edit),
+                  title: TextField(
+                    style: const TextStyle(color: Colors.black87),
+                    controller: textEditingController,
+                    decoration: const InputDecoration(
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.blue),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.blue),
                       ),
                     ),
-            ),
-            // Container(
-            //   height: 150,
-            //   child: DataReceivedFlag == 1
-            //       ? LineChart(_dataStream)
-            //       : Center(
-            //           child: Text(
-            //             "Not connected yet",
-            //             style: TextStyle(
-            //                 fontWeight: FontWeight.bold,
-            //                 fontSize: 25,
-            //                 fontFamily: 'Times New Roman'),
-            //           ),
-            //         ),
-            // ),
-
-            
-            Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                const Center(
-                  child: Text(
-                    "©Ren's Group,",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        fontFamily: 'Times New Roman'),
+                  ),
+                  subtitle: const Text("Input saving filename here"),
+                  trailing: ElevatedButton(
+                    child: const Text('save'),
+                    onPressed: () {
+                      createCSVFile(textEditingController.text);
+                      _FileSavedDialog();
+                    },
                   ),
                 ),
-                const Center(
-                  child: Text(
-                    "School of Integrated Circuits, Tsinghua University",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        fontFamily: 'Times New Roman'),
-                  ),
+                Container(
+                  height: 10,
                 ),
+                Expanded(
+                    child: ListView(
+                  children: [
+                    ShowGraph
+                        ? Column(
+                            children: [
+                              Container(
+                                height: MediaQuery.of(context).size.width <
+                                        MediaQuery.of(context).size.height
+                                    ? 150
+                                    : 140,
+                                child: DataReceivedFlag
+                                    ? LineChart(_dataStream.sublist(
+                                        _dataStream.length - 100 > 0
+                                            ? _dataStream.length - 100
+                                            : 0,
+                                        _dataStream.length))
+                                    : const Center(
+                                        child: Text(
+                                          "Not connected yet",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 25,
+                                              fontFamily: 'Times New Roman'),
+                                        ),
+                                      ),
+                              ),
+                              MediaQuery.of(context).size.width >
+                                      MediaQuery.of(context).size.height
+                                  ? Row(
+                                      // height: 30,
+                                      // width: 50,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            ShowGraph = !ShowGraph;
+                                          },
+                                          child: const Text(
+                                            "Back",
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                fontFamily: 'Times New Roman'),
+                                          ),
+                                        ),
+                                        const Text('             '),
+                                      ],
+                                    )
+                                  : ElevatedButton(
+                                      onPressed: () {
+                                        ShowGraph = !ShowGraph;
+                                      },
+                                      child: const Text(
+                                        "Back",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            fontFamily: 'Times New Roman'),
+                                      ),
+                                    ),
+                            ],
+                          )
+                        : InkWell(
+                            onTap: () {
+                              ShowGraph = !ShowGraph;
+                            },
+                            child: Container(
+                              margin:
+                                  const EdgeInsets.only(left: 90, right: 90),
+                              //设置 child 居中
+                              alignment: AlignmentDirectional.center,
+                              height: MediaQuery.of(context).size.width <
+                                      MediaQuery.of(context).size.height
+                                  ? 150
+                                  : 100,
+                              width: 50,
+                              //边框设置
+                              decoration: const BoxDecoration(
+                                //背景
+                                color: Color.fromARGB(255, 131, 193, 243),
+                                // color: Colors.blue,
+                                //设置四周圆角 角度
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(10.0)),
+                                //设置四周边框
+                                // border: new Border.all(width: 1, color: Colors.red),
+                              ),
+                              child: Center(
+                                child: MediaQuery.of(context).size.width <
+                                        MediaQuery.of(context).size.height
+                                    ? Column(
+                                        children: [
+                                          const Text(
+                                            "",
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                fontFamily: 'Times New Roman'),
+                                          ),
+                                          const Text(
+                                            "Current Time(s)",
+                                            style: TextStyle(
+                                                // color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 20,
+                                                fontFamily: 'Times New Roman'),
+                                          ),
+                                          Text(
+                                            _currentTime.toStringAsFixed(2),
+                                            style: const TextStyle(
+                                                // color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 30,
+                                                fontFamily: 'Times New Roman'),
+                                          ),
+                                          const Text(
+                                            "Current Value",
+                                            style: TextStyle(
+                                                // color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 20,
+                                                fontFamily: 'Times New Roman'),
+                                          ),
+                                          Text(
+                                            _currentData.toStringAsFixed(6),
+                                            style: const TextStyle(
+                                                // color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 30,
+                                                fontFamily: 'Times New Roman'),
+                                          ),
+                                        ],
+                                      )
+                                    : Row(
+                                        children: [
+                                          const Text(
+                                            "                  ",
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 30,
+                                                fontFamily: 'Times New Roman'),
+                                          ),
+                                          Column(
+                                            children: [
+                                              const Text(
+                                                "",
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    fontFamily:
+                                                        'Times New Roman'),
+                                              ),
+                                              const Text(
+                                                "Current Time(s)",
+                                                style: TextStyle(
+                                                    // color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 20,
+                                                    fontFamily:
+                                                        'Times New Roman'),
+                                              ),
+                                              Text(
+                                                _currentTime.toStringAsFixed(2),
+                                                style: const TextStyle(
+                                                    // color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 30,
+                                                    fontFamily:
+                                                        'Times New Roman'),
+                                              ),
+                                            ],
+                                          ),
+                                          const Text(
+                                            "                  ",
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 10,
+                                                fontFamily: 'Times New Roman'),
+                                          ),
+                                          Column(
+                                            children: [
+                                              const Text(
+                                                "",
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    fontFamily:
+                                                        'Times New Roman'),
+                                              ),
+                                              const Text(
+                                                "Current Value",
+                                                style: TextStyle(
+                                                    // color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 20,
+                                                    fontFamily:
+                                                        'Times New Roman'),
+                                              ),
+                                              Text(
+                                                _currentData.toStringAsFixed(6),
+                                                style: const TextStyle(
+                                                    // color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 30,
+                                                    fontFamily:
+                                                        'Times New Roman'),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          )
+                  ],
+                ))
               ],
             ),
-            // Center(child: Text("",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 15),),),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 5,
+              child: Center(
+                child: Column(
+                  children: const [
+                    Text(
+                      "©Ren's Group,",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          fontFamily: 'Times New Roman'),
+                    ),
+                    Text(
+                      "School of Integrated Circuits, Tsinghua University",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          fontFamily: 'Times New Roman'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           ],
         ),
+
+        // body: ListView(
+        //   children: <Widget>[
+        //     const Divider(),
+
+        //     // A container to place LineChart
+        // Container(
+        //   height: 150,
+        //   child: DataReceivedFlag
+        //       ? LineChart(_dataStream.sublist(
+        //           _dataStream.length - 100 > 0
+        //               ? _dataStream.length - 100
+        //               : 0,
+        //           _dataStream.length))
+        //       : const Center(
+        //           child: Text(
+        //             "Not connected yet",
+        //             style: TextStyle(
+        //                 fontWeight: FontWeight.bold,
+        //                 fontSize: 25,
+        //                 fontFamily: 'Times New Roman'),
+        //           ),
+        //         ),
+        // ),
+
+        //     SliderTheme(
+        //       data: SliderTheme.of(context).copyWith(
+        //         trackHeight: 2.0,
+        //       ),
+        //       child: Slider(
+        //         value: range,
+        //         min: 0.0,
+        //         max: 2.0,
+        //         onChanged: (val) => setState(() => range = val),
+        //       ),
+        //     ),
+
+        //     // Slider(
+        //     //   value: position,
+        //     //   min: 0.0,
+        //     //   max: 1.0,
+        //     //   // activeColor: Colors.deepPurple,
+        //     //   // inactiveColor: Colors.grey,
+        //     //   // divisions: 1000,
+        //     //   label: 'Current Label = $position',
+        //     //   onChanged: (val) => setState(() => position = val),
+        //     // ),
+
+        //   ],
+        // ),
       ),
       onWillPop: () async => await showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text(
-              'Are you sure you want to quit this page?\n Your data will be auto-saved with name "AutoSaved.csv".'),
+            'Are you sure you want to quit?\n Your data will be saved as "AutoSaved.csv".',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                fontFamily: 'Times New Roman'),
+          ),
           actions: <Widget>[
             TextButton(
               child: const Text('Not now'),
@@ -239,31 +489,28 @@ class _DataCollectionPage extends State<DataCollectionPage> {
         areaOpacity: 0.2, // 区域颜色透明度 0.0-1.0
       ),
       behaviors: [
-        charts.SlidingViewport(),
+        // charts.SlidingViewport(),
         // charts.SelectionModel(),
         // charts.PanAndZoomBehavior(),
         charts.ChartTitle('Time(s)',
             behaviorPosition: charts.BehaviorPosition.bottom,
             titleOutsideJustification:
                 charts.OutsideJustification.middleDrawArea),
-        charts.ChartTitle('Data',
-            behaviorPosition: charts.BehaviorPosition.start,
-            titleOutsideJustification:
-                charts.OutsideJustification.middleDrawArea),
-        // charts.ChartTitle('Sensor Data',
-        //     behaviorPosition: charts.BehaviorPosition.top,
+        // charts.ChartTitle('Data',
+        //     behaviorPosition: charts.BehaviorPosition.start,
         //     titleOutsideJustification:
         //         charts.OutsideJustification.middleDrawArea),
       ],
+
       //配置初始状态展示个数
       domainAxis: charts.NumericAxisSpec(
+        showAxisLine: true,
+        tickProviderSpec: const charts.BasicNumericTickProviderSpec(
+            zeroBound: false,
+            dataIsInWholeNumbers: false,
+            desiredMinTickCount: 8),
         viewport: charts.NumericExtents(
-            _dataStream[_dataStream.length - 1].time - 10 > 0
-                ? _dataStream[_dataStream.length - 1].time - 10
-                : 0,
-            _dataStream[_dataStream.length - 1].time > 10
-                ? _dataStream[_dataStream.length - 1].time
-                : 10),
+            DATALIST[0].time, DATALIST[DATALIST.length - 1].time>10?DATALIST[DATALIST.length - 1].time:10),
       ),
     );
   }
@@ -288,14 +535,21 @@ class _DataCollectionPage extends State<DataCollectionPage> {
         () {
           try {
             // print(message.time_stamp);
-            if (DataReceivedFlag == 0) {
-              _dataStream[0].data = double.parse(DATA);
+            if (!DataReceivedFlag) {
+              _currentData = double.parse(DATA);
+              _currentTime = 0;
               t_start = double.parse(TIME) / 1000.0;
-              DataReceivedFlag = 1;
+              DataReceivedFlag = true;
             } else {
-              _dataStream.add(Data(
-                  double.parse(TIME) / 1000.0 - t_start, double.parse(DATA)));
+              _currentData = double.parse(DATA);
+              _currentTime = double.parse(TIME) / 1000.0 - t_start;
             }
+            _dataStream.add(
+              Data(
+                _currentTime,
+                _currentData,
+              ),
+            );
           } catch (e) {
             // 非具体类型
             print('Something Wrong, skipped: $e');
@@ -306,6 +560,7 @@ class _DataCollectionPage extends State<DataCollectionPage> {
   }
 
   createCSVFile(String FileName) async {
+    if(FileName=='') FileName = 'untitled';
     List<List<dynamic>> rows = [];
     for (int i = 0; i < _dataStream.length; i++) {
       List<dynamic> row = [];
@@ -348,11 +603,11 @@ class _DataCollectionPage extends State<DataCollectionPage> {
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: Text("Info."),
-            content: Text("Your Data has been saved."),
+            title: const Text("Info."),
+            content: const Text("Your Data has been saved."),
             actions: [
               TextButton(
-                  child: Text("OK"),
+                  child: const Text("OK"),
                   onPressed: () {
                     print("OK");
                     Navigator.pop(context, "OK");
@@ -362,5 +617,76 @@ class _DataCollectionPage extends State<DataCollectionPage> {
         });
 
     print(result);
+  }
+}
+
+// /进度条内容自定义
+class LineSliderTickMarkShape extends SliderTickMarkShape {
+  const LineSliderTickMarkShape(
+      {this.tickMarkRadius = 0.0, this.strokeWidth = 1.0});
+
+  ///圆角
+  final double tickMarkRadius;
+
+  ///竖条宽度
+  final double strokeWidth;
+
+  @override
+  Size getPreferredSize({
+    required SliderThemeData sliderTheme,
+    required bool isEnabled,
+  }) {
+    assert(sliderTheme != null);
+    assert(sliderTheme.trackHeight != null);
+    assert(isEnabled != null);
+    return Size.fromRadius(tickMarkRadius);
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    required bool isEnabled,
+  }) {
+    Color? beginColor;
+    Color? endColor;
+
+    ///左右滑动颜色变更
+    switch (textDirection) {
+      case TextDirection.ltr:
+        final bool isTickMarkRightOfThumb = center.dx > thumbCenter.dx;
+        beginColor = isTickMarkRightOfThumb
+            ? sliderTheme.disabledInactiveTickMarkColor
+            : sliderTheme.disabledActiveTickMarkColor;
+        endColor = isTickMarkRightOfThumb
+            ? sliderTheme.inactiveTickMarkColor
+            : sliderTheme.activeTickMarkColor;
+        break;
+      case TextDirection.rtl:
+        final bool isTickMarkLeftOfThumb = center.dx < thumbCenter.dx;
+        beginColor = isTickMarkLeftOfThumb
+            ? sliderTheme.disabledInactiveTickMarkColor
+            : sliderTheme.disabledActiveTickMarkColor;
+        endColor = isTickMarkLeftOfThumb
+            ? sliderTheme.inactiveTickMarkColor
+            : sliderTheme.activeTickMarkColor;
+        break;
+    }
+
+    ///进度条样式、动画设置
+    final Paint paint = Paint()
+      ..color = ColorTween(begin: beginColor, end: endColor)
+          .evaluate(enableAnimation)!
+      ..style = PaintingStyle.fill
+      ..strokeWidth = strokeWidth;
+
+    ///进度条画布
+    context.canvas.drawLine(Offset(center.dx, center.dy - 5),
+        Offset(center.dx, center.dy + 5), paint);
   }
 }
